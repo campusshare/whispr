@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Whispr — View full report with evidence, comments, and secure contact.">
+    <meta name="theme-color" content="#070d1a">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="no-referrer">
+    <title>Report — Whispr</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .comment-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 0
+        }
+
+        .comment-item {
+            display: flex;
+            gap: var(--space-md);
+            padding: var(--space-md) 0;
+            border-bottom: 1px solid var(--border-subtle)
+        }
+
+        .comment-item:last-child {
+            border-bottom: none
+        }
+
+        .comment-body {
+            flex: 1;
+            min-width: 0
+        }
+
+        .comment-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: 6px;
+            flex-wrap: wrap
+        }
+
+        .comment-alias {
+            font-weight: 700;
+            font-size: .875rem
+        }
+
+        .comment-time {
+            font-size: .75rem;
+            color: var(--text-muted)
+        }
+
+        .comment-text {
+            font-size: .875rem;
+            color: var(--text-secondary);
+            line-height: 1.6
+        }
+
+        .comment-actions {
+            display: flex;
+            gap: var(--space-md);
+            margin-top: var(--space-sm)
+        }
+
+        .comment-action {
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: var(--font-body)
+        }
+
+        .comment-action:hover {
+            color: var(--accent-teal)
+        }
+
+        .reply-thread {
+            margin-left: 52px;
+            border-left: 2px solid var(--border-subtle);
+            padding-left: var(--space-md)
+        }
+
+        .comment-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: var(--space-md);
+            display: flex;
+            gap: var(--space-md);
+            align-items: flex-start
+        }
+
+        .comment-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: .9rem;
+            font-family: var(--font-body);
+            resize: none;
+            min-height: 40px
+        }
+
+        .comment-input::placeholder {
+            color: var(--text-muted)
+        }
+
+        .media-viewer {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            position: relative
+        }
+
+        .media-viewer img {
+            width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            background: #000
+        }
+
+        .media-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+            padding: var(--space-sm)
+        }
+
+        .media-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border-mid);
+            cursor: pointer;
+            transition: all var(--transition-fast)
+        }
+
+        .media-dot.active {
+            background: var(--accent-teal);
+            width: 24px;
+            border-radius: 4px
+        }
+
+        .signed-url-notice {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 8px 16px;
+            background: rgba(0, 212, 170, .06);
+            border-top: 1px solid var(--border-accent);
+            font-size: .75rem;
+            color: var(--accent-teal)
+        }
+
+        .post-header-meta {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+            margin-bottom: var(--space-lg)
+        }
+
+        .post-actions-bar {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-md) 0;
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+            margin: var(--space-md) 0;
+            flex-wrap: wrap
+        }
+
+        .post-action {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: var(--radius-md);
+            font-size: .875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: var(--font-body)
+        }
+
+        .post-action:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary)
+        }
+
+        .post-action.bookmarked {
+            color: var(--accent-teal)
+        }
+
+        .post-action svg {
+            width: 18px;
+            height: 18px
+        }
+    </style>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="assets/images/whisprlogo.png">
+</head>
+
+<body>
+    <nav class="nav">
+        <div class="nav__inner">
+            <a href="index.html" class="nav__logo" aria-label="Whispr Home" style="gap: 12px; align-items: center; text-decoration: none;">
+                <img src="assets/images/whisprlogo.png" alt="Whispr Logo" style="height: 48px; width: auto; object-fit: contain;">
+                <span style="font-weight: 900; letter-spacing: -0.02em; color: #ffffff; font-size: 1.6rem;">Whispr</span>
+            </a>
+            <div class="nav__links">
+                <a href="feed.html" class="nav__link">Feed</a>
+                <a href="videos.html" class="nav__link">Videos</a>
+                <a href="new-report.html" class="nav__link">Report</a>
+            </div>
+                        <div class="nav__actions">
+                <div class="security-bar" style="background: rgba(10, 132, 255, 0.1); border-color: rgba(10, 132, 255, 0.3); color: #0A84FF;">
+                    <span class="dot" style="background: #0A84FF;"></span> <span class="hide-mobile">Encrypted</span> Feed
+                </div>
+
+                <!-- Logged out: show sign in button -->
+                <a href="auth.html" class="btn btn--primary btn--sm" id="nav-signin-btn" data-auth-show="loggedOut"
+                   style="font-size:.82rem;padding:7px 16px;">
+                    Join Whispr
+                </a>
+
+                <!-- Logged in: show alias badge + sign out -->
+                <div data-auth-show="loggedIn" style="display:flex;align-items:center;gap:10px;">
+                    <a href="profile.html" id="nav-user-badge"
+                       style="display:flex;align-items:center;gap:8px;text-decoration:none;background:rgba(255,255,255,0.07);padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.09);cursor:pointer;transition:background .2s;">
+                        <span id="nav-avatar" style="font-size:1.1rem;line-height:1;">🦅</span>
+                        <span id="nav-alias" style="font-size:.85rem;font-weight:700;color:#fff;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                    </a>
+                    <button id="nav-signout-btn" aria-label="Sign out"
+                        style="background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.25);color:#FF453A;border-radius:20px;padding:6px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s;">
+                        Sign Out
+                    </button>
+                </div>
+
+                <button class="nav__hamburger" id="hamburger" aria-label="Open navigation menu" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <div class="nav__mobile" id="mobile-menu">
+        <a href="feed.html" class="nav__link">Feed</a>
+        <a href="new-report.html" class="nav__link">Report</a>
+        <a href="profile.html" class="nav__link">Profile</a>
+    </div>
+
+    <main class="page-body has-bottom-nav">
+        <div class="container container--narrow" style="padding-bottom:var(--space-3xl)">
+
+            <!-- Breadcrumb -->
+            <div class="flex gap-sm" style="margin-bottom:var(--space-lg);align-items:center;flex-wrap:wrap">
+                <a href="feed.html" style="color:var(--text-muted);font-size:.85rem">Feed</a>
+                <span style="color:var(--text-muted)">›</span>
+                <span class="text-sm text-muted truncate" id="post-breadcrumb">Loading report...</span>
+            </div>
+
+            <!-- Post Header -->
+            <div class="card" style="margin-bottom:var(--space-md)">
+                <div class="card__body">
+                    <div class="post-header-meta">
+                        <div class="avatar avatar--md" id="post-avatar" aria-hidden="true">SF</div>
+                        <div>
+                            <div style="font-weight:700;font-size:1rem" id="post-alias">SilentFalcon72</div>
+                            <div style="font-size:.8rem;color:var(--text-muted)" id="post-time">2 hours ago · Pending
+                                Review</div>
+                        </div>
+                        <div style="margin-left:auto;display:flex;gap:var(--space-sm);flex-wrap:wrap">
+                            <span class="tag" id="post-category">Government</span>
+                            <span class="tag tag--warning" id="post-sensitivity"
+                                aria-label="Sensitivity level">Medium</span>
+                        </div>
+                    </div>
+
+                    <h1 style="font-size:1.4rem;font-weight:800;line-height:1.3;margin-bottom:var(--space-md)"
+                        id="post-title">Loading report title...</h1>
+                    <div style="color:var(--text-secondary);line-height:1.8;margin-bottom:var(--space-lg);font-size:.95rem"
+                        id="post-body">
+                        <div class="skeleton" style="height:16px;width:100%;margin-bottom:8px"></div>
+                        <div class="skeleton" style="height:16px;width:90%;margin-bottom:8px"></div>
+                        <div class="skeleton" style="height:16px;width:95%;margin-bottom:8px"></div>
+                        <div class="skeleton" style="height:16px;width:80%"></div>
+                    </div>
+
+                    <div class="alert alert--info" style="margin-bottom:var(--space-md)">
+                        <span class="alert__icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18" />
+                            </svg></span>
+                        <p><strong>AI-rewritten</strong> — This report was processed by our AI to remove legally risky
+                            language while preserving factual content.</p>
+                    </div>
+
+                    <!-- Post Actions -->
+                    <div class="post-actions-bar" role="group" aria-label="Post actions">
+                        <button class="post-action engage-btn--like" id="btn-like" aria-label="Like post"
+                            aria-pressed="false" data-post-id="" data-base-count="0">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            <span class="like-count">0</span>
+                        </button>
+                        <button class="post-action" id="btn-bookmark" aria-label="Bookmark post" aria-pressed="false">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                            Bookmark
+                        </button>
+                        <button class="post-action" id="btn-share" aria-label="Share post">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            Share
+                        </button>
+                        <button class="post-action" id="btn-contact" aria-label="Request secure contact">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Contact
+                        </button>
+                        <button class="post-action" id="btn-report-abuse"
+                            style="margin-left:auto;color:var(--color-danger)" aria-label="Report abuse">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                            </svg>
+                            Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Media Evidence -->
+            <div class="card" style="margin-bottom:var(--space-md)" id="media-section" aria-label="Evidence media">
+                <div class="card__header">
+                    <span class="font-semibold">Evidence Files</span>
+                    <span class="tag tag--muted text-xs" id="media-count">3 files</span>
+                </div>
+                <div class="media-viewer">
+                    <div id="media-display"
+                        style="min-height:200px;display:flex;align-items:center;justify-content:center">
+                        <div style="text-align:center;color:var(--text-muted);padding:var(--space-2xl)">
+                            <div style="font-size:2.5rem;margin-bottom:var(--space-sm)" aria-hidden="true"><svg
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 11V7a5 5 0 0110 0v4" />
+                                </svg></div>
+                            <div class="font-semibold">Encrypted Evidence</div>
+                            <div class="text-sm" style="margin-top:4px">Generating signed access URL...</div>
+                            <div class="spinner" style="margin:var(--space-lg) auto 0"></div>
+                        </div>
+                    </div>
+                    <div class="media-nav" id="media-nav" style="display:none" aria-label="Media navigation">
+                        <button class="btn btn--icon btn--ghost" id="media-prev" aria-label="Previous file">←</button>
+                        <div style="display:flex;gap:6px" id="media-dots"></div>
+                        <button class="btn btn--icon btn--ghost" id="media-next" aria-label="Next file">→</button>
+                    </div>
+                    <div class="signed-url-notice" aria-label="Security notice">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <rect x="3" y="11" width="18" height="11" rx="2" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 11V7a5 5 0 0110 0v4" />
+                            </svg></span>
+                        <span>Access via signed URL · Expires in <span id="url-expires">15:00</span> minutes</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Location & Meta -->
+            <div class="card" style="margin-bottom:var(--space-md)">
+                <div class="card__body">
+                    <div class="grid-2" style="gap:var(--space-md)">
+                        <div>
+                            <div class="text-xs text-muted" style="margin-bottom:4px">Institution</div>
+                            <div class="font-semibold" id="post-institution">Redacted for safety</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-muted" style="margin-bottom:4px">Location</div>
+                            <div class="font-semibold" id="post-location">Greater Accra Region</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-muted" style="margin-bottom:4px">Incident Date</div>
+                            <div class="font-semibold" id="post-incident-date">January 2026</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-muted" style="margin-bottom:4px">Report ID</div>
+                            <div class="font-bold mono text-accent text-sm" id="post-id">WSPR-2026-00847</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="card" id="comments-section" aria-labelledby="comments-heading">
+                <div class="card__header">
+                    <h2 id="comments-heading" style="font-size:1rem;font-weight:700">Comments</h2>
+                    <span class="badge" id="comment-count">12</span>
+                </div>
+                <div class="card__body" style="padding-bottom:0">
+                    <div class="alert alert--info" style="margin-bottom:var(--space-md)">
+                        <span class="alert__icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="18" height="18">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18" />
+                            </svg></span>
+                        <p>All comments pass through AI anti-doxxing filter. Identity-revealing information is blocked.
+                        </p>
+                    </div>
+
+                    <!-- Comment Input -->
+                    <div class="comment-box" style="margin-bottom:var(--space-lg)">
+                        <div class="avatar avatar--sm" style="background:linear-gradient(135deg,#00d4aa,#00b894)"
+                            id="comment-avatar" aria-hidden="true">Me</div>
+                        <div style="flex:1">
+                            <textarea class="comment-input" id="comment-input"
+                                placeholder="Add a comment as SilentFalcon72..." rows="2" aria-label="Write a comment"
+                                maxlength="1000"></textarea>
+                            <div class="flex-between" style="margin-top:8px">
+                                <span class="text-xs text-muted">Commenting as <strong class="text-accent"
+                                        id="comment-alias-display">SilentFalcon72</strong></span>
+                                <button class="btn btn--primary btn--sm" id="btn-comment"
+                                    aria-label="Post comment">Post</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comment Thread -->
+                    <div class="comment-thread" id="comment-list" aria-label="Comments" aria-live="polite">
+                        <!-- Demo comments -->
+                        <div class="comment-item">
+                            <div class="avatar avatar--sm" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7)"
+                                aria-hidden="true">GW</div>
+                            <div class="comment-body">
+                                <div class="comment-header">
+                                    <span class="comment-alias">GhostWren44</span>
+                                    <span class="comment-time">1 hour ago</span>
+                                </div>
+                                <p class="comment-text">This matches patterns I've observed in other institutions in the
+                                    same region. The evidence presented here aligns with multiple other accounts.</p>
+                                <div class="comment-actions">
+                                    <button class="comment-action" aria-label="Reply to GhostWren44">Reply</button>
+                                    <button class="comment-action" aria-label="Report this comment">Report</button>
+                                </div>
+                                <!-- Nested Reply -->
+                                <div class="reply-thread">
+                                    <div class="comment-item" style="border-bottom:none;padding-top:var(--space-sm)">
+                                        <div class="avatar avatar--sm"
+                                            style="width:28px;height:28px;background:linear-gradient(135deg,#ffa502,#e67e22)"
+                                            aria-hidden="true">IH</div>
+                                        <div class="comment-body">
+                                            <div class="comment-header"><span
+                                                    class="comment-alias">IronHeron91</span><span
+                                                    class="comment-time">45 min ago</span></div>
+                                            <p class="comment-text">Correct. I can verify independently. The timeline
+                                                matches.</p>
+                                            <div class="comment-actions">
+                                                <button class="comment-action" aria-label="Reply">Reply</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="comment-item">
+                            <div class="avatar avatar--sm" style="background:linear-gradient(135deg,#fd79a8,#e84393)"
+                                aria-hidden="true">DM</div>
+                            <div class="comment-body">
+                                <div class="comment-header"><span class="comment-alias">DuskMarlin55</span><span
+                                        class="comment-time">30 min ago</span></div>
+                                <p class="comment-text">Has this been forwarded to any oversight bodies? The evidence
+                                    quality is high enough to warrant formal review.</p>
+                                <div class="comment-actions">
+                                    <button class="comment-action" aria-label="Reply to DuskMarlin55">Reply</button>
+                                    <button class="comment-action" aria-label="Report this comment">Report</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom nav -->
+    <nav class="bottom-nav" aria-label="Mobile navigation">
+        <a href="index.html" class="bottom-nav__item" aria-label="Home"><svg xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" />
+            </svg>Home</a>
+        <a href="feed.html" class="bottom-nav__item" aria-label="Feed"><svg xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>Feed</a>
+        <a href="new-report.html" class="bottom-nav__item" aria-label="New Whispr">
+            <div class="bottom-nav__fab"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg></div>Report
+        </a>
+        <a href="videos.html" class="bottom-nav__item" aria-label="Videos"><svg xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8h8a2 2 0 012 2v4a2 2 0 01-2 2H3a2 2 0 01-2-2v-4a2 2 0 012-2z" />
+            </svg>Videos</a>
+        <a href="profile.html" class="bottom-nav__item" aria-label="Profile"><svg xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>Profile</a>
+    </nav>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div class="nav__overlay" id="nav-overlay" aria-hidden="true"></div>
+
+    <!-- Mobile Sidebar Navigation -->
+    <div class="nav__mobile" id="mobile-menu" role="dialog" aria-label="Navigation menu" aria-modal="true">
+        <div class="nav__mobile__header">
+            <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+                <img src="assets/images/whisprlogo.png" alt="Whispr" style="height:32px;">
+                <span style="font-weight:900;color:#fff;font-size:1.1rem;">Whispr</span>
+            </a>
+            <button class="nav__mobile__close" id="nav-close-btn" aria-label="Close menu">&times;</button>
+        </div>
+
+        <a href="feed.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
+            Feed
+        </a>
+        <a href="videos.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M3 8h8a2 2 0 012 2v4a2 2 0 01-2 2H3a2 2 0 01-2-2v-4a2 2 0 012-2z" /></svg>
+            Videos
+        </a>
+        <a href="new-report.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            New Whispr
+        </a>
+        <a href="messages.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            Messages
+        </a>
+        <a href="search.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            Search
+        </a>
+        <a href="profile.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            Profile
+        </a>
+        <a href="about.html" class="nav__link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4m0-4h.01"/></svg>
+            About
+        </a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-footer">
+            <a href="auth.html" class="btn btn--primary btn--block">Create Anonymous Account</a>
+        </div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div class="modal-overlay" id="contact-modal" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title">
+        <div class="modal">
+            <div class="modal__header">
+                <h2 class="modal__title" id="contact-modal-title">Request Secure Contact</h2>
+                <button class="modal__close" id="contact-modal-close" aria-label="Close">✕</button>
+            </div>
+            <div class="modal__body">
+                <div class="alert alert--warning" style="margin-bottom:var(--space-lg)">
+                    <span class="alert__icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg></span>
+                    <p>A secure message will be sent to this alias. <strong>No identity information is shared.</strong>
+                        They can choose to respond or not.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="contact-message">Your Message</label>
+                    <textarea class="form-textarea" id="contact-message"
+                        placeholder="Explain why you need to contact this person and how you can help..."
+                        rows="4"></textarea>
+                </div>
+                <button class="btn btn--primary btn--block" id="send-contact-request">Send Secure Message</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" role="alert" aria-live="polite"></div>
+    <script src="js/app.js"></script>
+    <script src="js/post.js"></script>
+    <script>
+        /* ── Like button wiring ─────────────────────────────────── */
+        document.addEventListener('DOMContentLoaded', () => {
+            const likeBtn = document.getElementById('btn-like');
+            if (!likeBtn || !window.Whispr?.Likes) return;
+
+            // Read postId from URL ?id= param
+            const postId = new URLSearchParams(location.search).get('id') || 'post-unknown';
+            const baseCount = parseInt(likeBtn.dataset.baseCount || '0', 10);
+
+            likeBtn.dataset.postId = postId;
+
+            // Restore persisted state
+            const liked = Whispr.Likes.isLiked(postId);
+            const count = Whispr.Likes.getCount(postId, baseCount);
+            likeBtn.classList.toggle('liked', liked);
+            likeBtn.querySelector('.like-count').textContent = count;
+            likeBtn.setAttribute('aria-pressed', liked ? 'true' : 'false');
+
+            likeBtn.addEventListener('click', () => {
+                const result = Whispr.Likes.toggle(postId, baseCount);
+                likeBtn.classList.toggle('liked', result.liked);
+                likeBtn.querySelector('.like-count').textContent = result.count;
+                likeBtn.setAttribute('aria-pressed', result.liked ? 'true' : 'false');
+                // Heart pop animation
+                likeBtn.classList.remove('pop');
+                void likeBtn.offsetWidth;
+                likeBtn.classList.add('pop');
+                likeBtn.addEventListener('animationend', () => likeBtn.classList.remove('pop'), { once: true });
+            });
+        });
+    </script>
+</body>
+
+</html>
