@@ -76,7 +76,12 @@ function cardHTML(post) {
   const isRe = reposted.has(post.id);
   const lc = (post.likes_count || 0) + (isL ? 0 : 0); // raw count
 
-  const mediaHTML = post.media_urls?.length > 0
+  const hasEvidence = Array.isArray(post.media_urls) && post.media_urls.length > 0;
+  const evidenceBadge = hasEvidence
+    ? `<span style="font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:999px;background:#00d4aa18;color:#00d4aa;border:1px solid #00d4aa44;letter-spacing:.03em;">📎 Evidence</span>`
+    : `<span style="font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:999px;background:#FF453A18;color:#FF453A;border:1px solid #FF453A33;letter-spacing:.03em;">⚠ No Evidence</span>`;
+
+  const mediaHTML = hasEvidence
     ? `<div style="border-radius:12px;overflow:hidden;margin:10px 0;"><img src="${post.media_urls[0]}" alt="Media" style="width:100%;max-height:300px;object-fit:cover;display:block;"></div>`
     : '';
 
@@ -95,6 +100,7 @@ function cardHTML(post) {
       <span style="color:#6E6E73;font-size:.8rem;">·</span>
       <span style="font-size:.75rem;color:#8E8E93;">${(post.category || '').charAt(0).toUpperCase() + (post.category || '').slice(1)}</span>
       ${badge(post.sensitivity)}
+      ${evidenceBadge}
     </div>
 
     <h3 class="x-post__title" style="font-size:1rem;font-weight:700;margin:0 0 6px;line-height:1.35;">${post.title || 'Untitled Report'}</h3>
@@ -160,6 +166,13 @@ function cardHTML(post) {
 /* ── Apply filters + sort ────────────────────────────────── */
 function applyFilters() {
   let posts = [...allPosts];
+
+  // Following mode filter
+  if (currentMode === 'following') {
+    if (followed.size === 0) { shownPosts = []; return; }
+    posts = posts.filter(p => followed.has(p.alias));
+  }
+
   if (currentCat !== 'all') posts = posts.filter(p => p.category === currentCat);
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -416,6 +429,45 @@ function initNewReportBtn() {
   if (btn) btn.addEventListener('click', () => location.href = 'new-report.html');
 }
 
+/* ── Feed mode (Global / Following) ─────────────────────── */
+let currentMode = 'global';
+const followed = new Set(JSON.parse(localStorage.getItem('w_follows') || '[]'));
+
+function initFeedModes() {
+  const btnGlobal = getEl('btn-mode-global');
+  const btnFollowing = getEl('btn-mode-following');
+  const toggle = getEl('feed-mode-toggle');
+  const container = getEl('feed-container');
+
+  // Add scroll padding so sticky toggle bar never overlaps first post
+  if (toggle && container) {
+    const toggleH = toggle.offsetHeight || 52;
+    container.style.scrollMarginTop = (toggleH + 8) + 'px';
+    // add padding-top equal to toggle height so content starts BELOW the bar
+    const feedCol = toggle.closest('div');
+    if (feedCol) feedCol.style.paddingTop = '0';
+    container.style.paddingTop = '8px';
+  }
+
+  if (!btnGlobal || !btnFollowing) return;
+
+  btnGlobal.addEventListener('click', () => {
+    currentMode = 'global';
+    btnGlobal.classList.add('active');
+    btnFollowing.classList.remove('active');
+    shownCount = 6;
+    renderFeed();
+  });
+
+  btnFollowing.addEventListener('click', () => {
+    currentMode = 'following';
+    btnFollowing.classList.add('active');
+    btnGlobal.classList.remove('active');
+    shownCount = 6;
+    renderFeed();
+  });
+}
+
 /* ── INIT ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   // Render demo posts immediately so feed is never blank
@@ -423,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
   shownCount = 6;
   renderFeed();
 
+  initFeedModes();
   initCategoryPills();
   initSearch();
   initSort();

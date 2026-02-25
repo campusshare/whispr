@@ -1,82 +1,123 @@
+/**
+ * Whispr — process-report Edge Function (HARDENED)
+ *
+ * Security:
+ *  - CORS locked to ALLOWED_ORIGIN
+ *  - JWT required; user-scoped Supabase client used for DB writes (RLS applies)
+ *  - Service role NOT used for post insertion
+ *  - story_original encrypted with AES-256-GCM before storage
+ *  - Real PII detection: auto-flags, blocks publication if PII present
+ *  - Rate limit: 5 posts per hour per user
+ *  - No sensitive data in logs or error responses
+ */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-// Define CORS headers for cross-origin requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import {
+  getCorsHeaders,
+  handlePreflight,
+  corsRejected,
+  verifyUserJWT,
+  checkRateLimit,
+  rateLimitResponse,
+  aesEncrypt,
+  scanAndSanitizePii,
+  logSecurity,
+  errorResponse,
+  jsonResponse,
+} from '../_shared/security.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  // ── CORS preflight ─────────────────────────────────────
+  const preflight = handlePreflight(req)
+  if (preflight) return preflight
+
+  const cors = getCorsHeaders(req)
+  if (!cors) return corsRejected()
+
+  if (req.method !== 'POST') return errorResponse('Method not allowed', 405, cors)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Missing Authorization header')
+    // ── Authentication (JWT required) ──────────────────────
+    const { userId, userClient, adminClient } = await verifyUserJWT(req)
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // ── Rate limiting: 5 posts/hour ────────────────────────
+    const rl = await checkRateLimit(adminClient, userId, 'post')
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter!, cors)
 
-    // Verify JWT
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token)
-    if (authErr || !user) throw new Error('Unauthorized payload access')
-
+    // ── Parse & validate body ──────────────────────────────
     const body = await req.json()
-    const { story_original, category, location, incident_date, sensitivity } = body
+    const { story_original, category, location, incident_date, sensitivity, title, alias } = body
 
-    if (!story_original) {
-      throw new Error('Missing original story payload')
+    if (!story_original || typeof story_original !== 'string' || story_original.trim().length < 20) {
+      return errorResponse('Story content too short or missing', 400, cors)
+    }
+    if (!category) return errorResponse('Category is required', 400, cors)
+    if (!alias) return errorResponse('Alias is required', 400, cors)
+
+    // ── PII DETECTION (real pattern-based) ─────────────────
+    const piiResult = scanAndSanitizePii(story_original)
+    if (piiResult.hasPii) {
+      logSecurity('WARN', `PII detected in submission — categories: ${piiResult.categories.join(', ')}`)
     }
 
-    // 1. Send text to LLM Gateway for Sanitization
-    console.log(`[AI AGENT] Sanitizing text string for legal compliance and PII removal...`)
-    // Mock LLaMA or OpenAI sanitization response
-    // const llmResponse = await fetch('https://api.openai.com/v1/chat/completions', { ... })
-    const story_sanitized = story_original.replace(/[A-Z][a-z]+ [A-Z][a-z]+/g, "[REDACTED NAME]")
-      .replace(/\d{4} \w+ Rd/g, "[REDACTED ADDRESS]")
+    // ── AES-256-GCM encrypt story_original ────────────────
+    const encryptedStory = await aesEncrypt(story_original)
+    logSecurity('INFO', 'Story encrypted with AES-256-GCM')
 
-    // 2. Generate Semantic Embedded Vector for PgVector Search
-    console.log(`[AI AGENT] Generating pgvector embeddings...`)
-    // Normally uses OpenAI's text-embedding-ada-002 or local equivalent
-    // const embedding = await fetch('https://api.openai.com/v1/embeddings', { ... })
-    // Embedding is strictly an array of 1536 floats. Mocking first 5.
+    // ── If PII detected: do NOT set story_sanitized → post stays draft/not-public
+    // ── If clean: set sanitized to PII-scrubbed version
+    const storySanitized = piiResult.hasPii ? null : piiResult.sanitized
+    const moderationStatus = piiResult.hasPii ? 'flagged_pii' : 'pending'
+
+    // Mock embedding (replace with real OpenAI embedding in production)
     const mockEmbedding = Array(1536).fill(0).map(() => Math.random() - 0.5)
 
-    // 3. Insert secure payload into database
-    const { data: postData, error: dbError } = await supabaseAdmin
+    // ── DB insert via USER-SCOPED client (RLS applies) ─────
+    // RLS policy "Authors can insert own posts" enforces author_id = auth.uid()
+    const { data: postRow, error: dbErr } = await userClient
       .from('posts')
       .insert({
-        author_id: user.id,
-        category: category || 'general',
-        location: location || 'Unknown',
+        author_id: userId,
+        alias,
+        title: title || null,
+        category: category.slice(0, 64),
+        location: location ? location.slice(0, 256) : null,
         incident_date: incident_date || null,
-        story_original: story_original, // Hidden by RLS
-        story_sanitized: story_sanitized, // Public
+        story_original: encryptedStory.ciphertext,
+        story_iv: encryptedStory.iv,
+        story_auth_tag: encryptedStory.authTag,
+        story_sanitized: storySanitized,
         embedding: mockEmbedding,
-        sensitivity: sensitivity || 'normal'
+        sensitivity: sensitivity || 'medium',
+        pii_flagged: piiResult.hasPii,
+        moderation_status: moderationStatus,
       })
       .select('id')
       .single()
 
-    if (dbError) throw dbError
+    if (dbErr) {
+      logSecurity('ERROR', 'Post insert failed')
+      return errorResponse('Failed to submit report', 500, cors)
+    }
 
-    return new Response(JSON.stringify({
+    logSecurity('INFO', 'Report submitted and encrypted successfully')
+
+    // ── Response: never return sanitized text or story content ──
+    return jsonResponse({
       success: true,
-      message: 'Report sanitized, vectorized, and secured.',
-      post_id: postData.id,
-      sanitized_preview: story_sanitized
-    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      post_id: postRow.id,
+      pii_flagged: piiResult.hasPii,
+      status: moderationStatus,
+      message: piiResult.hasPii
+        ? 'Report submitted for manual review (PII detected — will not be published automatically).'
+        : 'Report submitted and pending moderation.',
+    }, 201, cors)
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  } catch (err) {
+    const msg = (err as Error).message ?? 'Unknown error'
+    if (msg.includes('token') || msg.includes('Unauthorized')) {
+      return errorResponse('Unauthorized', 401, cors)
+    }
+    logSecurity('ERROR', 'process-report exception')
+    return errorResponse('Internal server error', 500, cors)
   }
 })

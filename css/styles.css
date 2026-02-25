@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    WHISPR — Core Design System
    Dark institutional theme | Mobile-first | Glassmorphism
    ============================================================ */
@@ -166,25 +166,32 @@ ol {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.7rem;
+  font-weight: 900;
   color: var(--text-primary);
-  letter-spacing: -0.02em
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.nav__logo img {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
 }
 
 .nav__logo span {
-  color: var(--accent-teal)
+  color: var(--text-primary)
 }
 
 .nav__logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: linear-gradient(135deg, var(--accent-teal), var(--accent-teal-2));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem
+  font-size: 1.1rem
 }
 
 .nav__links {
@@ -1646,82 +1653,147 @@ ol {
   }
 }
 
-/* Bottom nav (mobile) */
+/* ═══════════════════════════════════════════════════════════
+/* =====================================================
+   BOTTOM NAV - Blue Pill Bar (matches reference image)
+   .bottom-nav = the blue pill container itself
+   Active item = white inner pill, blue icon + text
+   Inactive   = white icons on blue, no text
+   FAB centre = white circle, blue plus icon
+   ===================================================== */
+
 .bottom-nav {
   display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(7, 13, 26, .96);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-subtle);
-  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
-  z-index: 800;
-  grid-template-columns: repeat(5, 1fr)
 }
 
-@media(max-width:768px) {
+@media(max-width: 768px) {
   .bottom-nav {
-    display: grid
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0 10px calc(12px + env(safe-area-inset-bottom, 0px)) 10px;
+    padding: 5px 6px;
+    background: #0A84FF;
+    border-radius: 999px;
+    box-shadow: 0 8px 30px rgba(10,132,255,.5);
+    align-items: center;
+    justify-content: space-around;
+    gap: 4px;
+    z-index: 900;
   }
 }
 
 .bottom-nav__item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px;
-  color: var(--text-muted);
-  font-size: .65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  transition: color var(--transition-fast);
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  color: #fff;
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .025em;
+  text-decoration: none;
+  border-radius: 999px;
+  height: 48px;
+  min-width: 48px;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  background: transparent;
+  border: none;
+  outline: none;
   cursor: pointer;
-  text-decoration: none
-}
-
-.bottom-nav__item.active {
-  color: var(--accent-teal)
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    background .35s cubic-bezier(.34,1.56,.64,1),
+    color .3s cubic-bezier(.34,1.56,.64,1),
+    min-width .38s cubic-bezier(.34,1.56,.64,1),
+    padding .32s cubic-bezier(.34,1.56,.64,1),
+    gap .28s ease;
 }
 
 .bottom-nav__item svg {
   width: 22px;
-  height: 22px
+  height: 22px;
+  flex-shrink: 0;
+  stroke: #fff;
+  fill: none;
+  transition: stroke .3s cubic-bezier(.34,1.56,.64,1), transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+
+.bottom-nav__item .bnav-label {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  color: #0A84FF;
+  transition: max-width .38s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+}
+
+.bottom-nav__item.active {
+  background: #fff;
+  color: #0A84FF;
+  min-width: 108px;
+  padding: 0 18px;
+  gap: 8px;
+}
+
+.bottom-nav__item.active svg {
+  stroke: #0A84FF;
+  transform: scale(1.05);
+}
+
+.bottom-nav__item.active .bnav-label {
+  max-width: 88px;
+  opacity: 1;
 }
 
 .bottom-nav__fab {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-teal), var(--accent-teal-2));
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #00140e;
-  margin: -12px auto 0;
-  box-shadow: 0 4px 20px rgba(0, 212, 170, .4);
-  transition: all var(--transition-mid)
-}
-
-.bottom-nav__fab:hover {
-  transform: scale(1.1)
+  flex-shrink: 0;
+  transition: transform .26s cubic-bezier(.34,1.56,.64,1);
 }
 
 .bottom-nav__fab svg {
-  width: 22px;
-  height: 22px
+  width: 20px;
+  height: 20px;
+  stroke: #0A84FF;
+  fill: none;
 }
 
-@media(max-width:768px) {
+.bottom-nav__item:has(.bottom-nav__fab) {
+  background: transparent !important;
+  min-width: 48px !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.bottom-nav__item:has(.bottom-nav__fab) .bnav-label { display: none !important; }
+
+.bottom-nav__item:has(.bottom-nav__fab):active .bottom-nav__fab,
+.bottom-nav__item:has(.bottom-nav__fab):hover .bottom-nav__fab {
+  transform: scale(1.12) rotate(45deg);
+}
+
+@media(max-width: 768px) {
   .has-bottom-nav {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom))
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 }
 
 /* Empty state */
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -2523,35 +2595,71 @@ ol {
 
 
 /* ── Feed Interactions ────────────────────────────────────── */
-.like-btn.liked svg    { fill: #FF453A; stroke: #FF453A; }
-.like-btn.liked        { color: #FF453A; }
-.bookmark-btn.bookmarked svg { fill: #0A84FF; stroke: #0A84FF; }
-.bookmark-btn.bookmarked     { color: #0A84FF; }
-.repost-btn.active svg { stroke: #30D158; }
-.repost-btn.active     { color: #30D158; }
+.like-btn.liked svg {
+  fill: #FF453A;
+  stroke: #FF453A;
+}
+
+.like-btn.liked {
+  color: #FF453A;
+}
+
+.bookmark-btn.bookmarked svg {
+  fill: #0A84FF;
+  stroke: #0A84FF;
+}
+
+.bookmark-btn.bookmarked {
+  color: #0A84FF;
+}
+
+.repost-btn.active svg {
+  stroke: #30D158;
+}
+
+.repost-btn.active {
+  color: #30D158;
+}
 
 /* ── Comment Panel ──────────────────────────────────────────── */
 .comment-panel {
   margin-top: 12px;
   padding: 14px;
   background: rgba(28, 28, 30, 0.7);
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
   animation: fadeSlideDown 0.22s ease;
 }
 
 @keyframes fadeSlideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.comment-list { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
-.comment-list::-webkit-scrollbar { width: 4px; }
-.comment-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.comment-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.comment-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.comment-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
 
 .comment-input:focus {
-  border-color: rgba(10,132,255,0.5) !important;
-  box-shadow: 0 0 0 3px rgba(10,132,255,0.15);
+  border-color: rgba(10, 132, 255, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
 }
 
 /* ── Link helper ─────────────────────────────────────────── */
@@ -3101,24 +3209,32 @@ ol {
 .x-hide {
   display: none !important;
 }
+
 /* ── Auth-aware UI ──────────────────────────────────────────── */
 
 /* Default: hide everything, show after JS applies body class */
-[data-auth-show] { display: none; }
+[data-auth-show] {
+  display: none;
+}
 
 /* Logged-Out: hide logged-in elements globally handled by JS.
    These rules are a safety net for flash of wrong content. */
-body.logged-out [data-auth-show="loggedIn"]  { display: none !important; }
-body.logged-in  [data-auth-show="loggedOut"] { display: none !important; }
+body.logged-out [data-auth-show="loggedIn"] {
+  display: none !important;
+}
+
+body.logged-in [data-auth-show="loggedOut"] {
+  display: none !important;
+}
 
 /* Nav user badge hover */
 #nav-user-badge:hover {
-  background: rgba(255,255,255,0.11) !important;
+  background: rgba(255, 255, 255, 0.11) !important;
 }
 
 /* Sign out button hover */
 #nav-signout-btn:hover {
-  background: rgba(255,69,58,0.22) !important;
+  background: rgba(255, 69, 58, 0.22) !important;
 }
 
 /* Profile page guest prompt box */
@@ -3127,4 +3243,373 @@ body.logged-in  [data-auth-show="loggedOut"] { display: none !important; }
   padding: 60px 20px;
   max-width: 420px;
   margin: 60px auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE OVERRIDES — ≤768px (phone screens)
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── Global layout ───────────────────────────── */
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  /* ── Top nav: hide desktop links, keep logo + hamburger ── */
+  .nav__links,
+  .nav__actions>a,
+  .nav__actions>button:not(#hamburger) {
+    display: none !important;
+  }
+
+  .nav__actions {
+    gap: 8px;
+  }
+
+  #nav-user-badge {
+    display: none !important;
+  }
+
+  #nav-signout-btn {
+    display: none !important;
+  }
+
+  /* ── Page body ───────────────────────────────── */
+  .page-body {
+    padding-top: calc(var(--nav-height-mobile) + 8px);
+  }
+
+  /* ── Hero section ────────────────────────────── */
+  .hero {
+    padding: 60px 16px 40px;
+    min-height: unset;
+  }
+
+  .hero__content {
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .hero__title {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+
+  .hero__subtitle {
+    font-size: 1rem;
+  }
+
+  .hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .hero__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Hide hero image / visual on mobile to avoid overflow */
+  .hero__visual,
+  .hero-image-wrap {
+    display: none;
+  }
+
+  /* ── Cards ───────────────────────────────────── */
+  .card {
+    border-radius: 12px;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* ── Grids: force single column ──────────────── */
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Section padding ─────────────────────────── */
+  .section {
+    padding: var(--space-2xl) 0;
+  }
+
+  /* ── Feed page ───────────────────────────────── */
+  .feed-layout,
+  .feed-layout.x-style {
+    display: block;
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
+  }
+
+  .feed-layout aside {
+    display: none !important;
+  }
+
+  /* Feed mode toggle tabs */
+  .feed-mode-toggle.sticky-header {
+    top: var(--nav-height-mobile);
+    padding: 0 16px;
+  }
+
+  .feed-mode-toggle.sticky-header .feed-mode-btn {
+    font-size: 0.85rem;
+    padding: 10px 0;
+  }
+
+  /* Post cards */
+  .x-post {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .x-post__actions {
+    max-width: 100%;
+  }
+
+  /* Category pills: horizontal scroll instead of wrap */
+  .category-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .category-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Profile page ────────────────────────────── */
+  .p-cover {
+    height: 130px;
+  }
+
+  .p-stats-row {
+    gap: 12px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .p-stats-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .p-info {
+    padding: 2px 12px 12px;
+  }
+
+  /* ── Search page ─────────────────────────────── */
+  .search-bar input {
+    font-size: 1rem;
+  }
+
+  /* ── New report form ─────────────────────────── */
+  .new-report-layout {
+    display: block;
+  }
+
+  .new-report-layout aside {
+    display: none !important;
+  }
+
+  .new-report-form {
+    padding: 16px;
+  }
+
+  /* ── Post detail page ────────────────────────── */
+  .post-layout {
+    display: block;
+  }
+
+  .post-layout>aside {
+    display: none !important;
+  }
+
+  /* ── Messages page ───────────────────────────── */
+  .messages-layout {
+    grid-template-columns: 1fr;
+    height: calc(100dvh - var(--nav-height-mobile) - 64px);
+  }
+
+  .messages-sidebar {
+    height: 200px;
+    overflow-y: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  /* ── Modals ──────────────────────────────────── */
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 24px 24px 0 0;
+    max-height: 90dvh;
+  }
+
+  /* ── Tables ──────────────────────────────────── */
+  table {
+    font-size: 0.82rem;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Sidebar layout ──────────────────────────── */
+  .layout-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  /* ── Auth page ───────────────────────────────── */
+  .auth-card {
+    padding: var(--space-lg);
+    border-radius: 16px;
+    margin: 16px;
+  }
+
+  /* ── Admin page ──────────────────────────────── */
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    display: none;
+  }
+
+  /* ── Videos / reels ──────────────────────────── */
+  .reel-slide {
+    height: calc(100dvh - 64px);
+  }
+
+  /* ── Footer ──────────────────────────────────── */
+  .footer__grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-lg);
+  }
+
+  .footer__brand {
+    text-align: center;
+  }
+
+  /* ── Typography scaling ──────────────────────── */
+  h1 {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+  }
+
+  h2 {
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
+  }
+
+  /* ── Utility: full-bleed sections ───────────── */
+  .full-bleed-mobile {
+    margin-left: -16px;
+    margin-right: -16px;
+    border-radius: 0;
+  }
+
+  /* ── Fix: prevent horizontal overflow caused by wide elements ── */
+  img,
+  video,
+  iframe,
+  table {
+    max-width: 100%;
+  }
+
+  pre {
+    overflow-x: auto;
+  }
+
+  /* Fix form selects & inputs on iOS */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    /* prevents iOS zoom */
+  }
+}
+
+/* ── Extra small phones: ≤480px ──────────────────── */
+@media (max-width: 480px) {
+
+  .nav__logo span {
+    display: none;
+    /* just show icon on tiny phones */
+  }
+
+  .p-alias {
+    font-size: 1.1rem;
+  }
+
+  .p-cover {
+    height: 110px;
+  }
+
+  .p-avatar-ring {
+    width: 72px;
+    height: 72px;
+    font-size: 1.6rem;
+  }
+
+  .p-avatar-wrap {
+    bottom: -36px;
+  }
+
+  .verf-card {
+    margin: 12px 10px;
+    padding: 16px;
+  }
+
+  /* Feed X-style posts tighter on small phone */
+  .x-post {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .x-post__alias {
+    font-size: 0.88rem;
+  }
+
+  .x-post__text {
+    font-size: 0.9rem;
+  }
+
+  /* Action buttons slightly smaller */
+  .x-action-btn {
+    padding: 6px;
+  }
+
+  .x-action-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Smaller bold badge on tiny phones */
+  .bottom-nav__item.active {
+    min-width: 76px;
+    padding: 0 12px;
+  }
+
+  /* Card margin reduced */
+  .card {
+    border-radius: 10px;
+  }
 }

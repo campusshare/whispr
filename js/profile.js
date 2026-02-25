@@ -225,23 +225,104 @@ function renderUserPosts(posts) {
     if (!list) return;
 
     if (!posts.length) {
-        list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#8E8E93;font-size:.9rem;">
-      No reports yet.
-    </div>`;
+        list.innerHTML = `<div style="text-align:center;padding:40px 20px;color:#8E8E93;font-size:.9rem;">No reports yet.</div>`;
         return;
     }
 
     const catColors = { corruption: '#FF453A', government: '#FF9F0A', education: '#0A84FF', healthcare: '#30D158', environment: '#30D158', financial: '#FF9F0A', abuse: '#FF453A', trafficking: '#FF453A' };
     list.innerHTML = posts.map(p => `
-    <a href="post.html?id=${p.id}" style="display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);text-decoration:none;color:inherit;cursor:pointer;transition:background .15s;" class="profile-post-row">
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:.7rem;font-weight:700;color:${catColors[p.category] || '#8E8E93'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${p.category || 'Report'}</div>
-        <div style="font-weight:700;font-size:.95rem;margin-bottom:4px;line-height:1.3;">${p.title || 'Untitled'}</div>
-        <div style="font-size:.8rem;color:#8E8E93;">${relTime(p.created_at)} · ❤ ${fmt(p.likes_count || 0)} · 💬 ${fmt(p.comments_count || 0)}</div>
+    <a href="post.html?id=${p.id}" class="p-post-row" style="text-decoration:none;color:inherit;">
+      <div class="p-post-thumb">${p.media_urls?.length > 0 ? `<img src="${p.media_urls[0]}" alt="" style="width:100%;height:100%;border-radius:10px;object-fit:cover;">` : '📝'}</div>
+      <div class="p-post-meta">
+        <div class="p-post-title">${p.title || 'Untitled'}</div>
+        <div class="p-post-cat">${(p.category || 'report').charAt(0).toUpperCase() + (p.category || 'report').slice(1)} · ${relTime(p.created_at)} · ❤ ${fmt(p.likes_count || 0)}</div>
       </div>
-      ${p.media_urls?.length > 0
-            ? `<img src="${p.media_urls[0]}" alt="" style="width:68px;height:68px;border-radius:10px;object-fit:cover;flex-shrink:0;">`
-            : `<div style="width:68px;height:68px;border-radius:10px;background:#1C1C1E;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg fill="none" viewBox="0 0 24 24" stroke="#6E6E73" stroke-width="1.5" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>`}
-    </a>
-  `).join('');
+    </a>`).join('');
 }
+
+/* ── Profile tab bar ────────────────────────────────────── */
+function initProfileTabs() {
+    document.querySelectorAll('.p-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.p-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+            document.querySelectorAll('.p-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            tab.setAttribute('aria-selected', 'true');
+            const panelId = `ptab-${tab.dataset.ptab}`;
+            const panel = document.getElementById(panelId);
+            if (panel) panel.classList.add('active');
+        });
+    });
+}
+
+/* ── New avatar render for premium layout ───────────────── */
+function renderNewAvatar(user) {
+    const ring = getEl('profile-avatar-ring');
+    const initSpan = getEl('profile-avatar-initials');
+    const img = getEl('profile-avatar-img');
+    if (!ring) return;
+    if (user.avatar_url) {
+        if (img) { img.src = user.avatar_url; img.style.display = ''; }
+        if (initSpan) initSpan.style.display = 'none';
+    } else {
+        ring.style.background = user.avatar_color || '#00d4aa';
+        if (initSpan) initSpan.textContent = (user.alias || '?').charAt(0).toUpperCase();
+    }
+}
+
+/* ── Own/other profile button visibility ────────────────── */
+function initProfileButtons(isOwn) {
+    const editBtn = getEl('btn-edit-profile');
+    const followBtn = getEl('btn-follow');
+    if (editBtn) editBtn.style.display = isOwn ? '' : 'none';
+    if (followBtn) followBtn.style.display = isOwn ? 'none' : '';
+}
+
+/* ── Verification badge request ─────────────────────────── */
+function initVerificationRequest() {
+    const requestBtn = getEl('btn-request-badge');
+    const statusChip = getEl('verf-status-chip');
+    const form = getEl('verf-form');
+    const submitted = getEl('verf-submitted');
+
+    // Check if already submitted (persisted in localStorage)
+    const stored = JSON.parse(localStorage.getItem('w_badge_req') || 'null');
+    if (stored) {
+        if (statusChip) { statusChip.className = `verf-status ${stored.status}`; statusChip.textContent = { pending: '⏳ Pending Review', approved: '✅ Approved', rejected: '❌ Rejected' }[stored.status] || '⏳ Pending Review'; }
+        if (form) form.style.display = 'none';
+        if (submitted) submitted.style.display = '';
+        return;
+    }
+
+    if (!requestBtn) return;
+    requestBtn.addEventListener('click', () => {
+        const reason = getEl('verf-reason')?.value.trim();
+        const type = getEl('verf-type')?.value;
+        if (!reason) { alert('Please describe why you should receive this badge.'); return; }
+
+        // Persist locally
+        localStorage.setItem('w_badge_req', JSON.stringify({ type, reason, links: getEl('verf-links')?.value, status: 'pending', ts: Date.now() }));
+
+        // Update UI
+        if (statusChip) { statusChip.className = 'verf-status pending'; statusChip.textContent = '⏳ Pending Review'; }
+        if (form) form.style.display = 'none';
+        if (submitted) submitted.style.display = '';
+
+        // Send to Supabase (best-effort)
+        const alias = window.Whispr?.Auth?.getAlias();
+        if (alias) {
+            fetch(`${SB_URL}/rest/v1/badge_requests`, {
+                method: 'POST',
+                headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                body: JSON.stringify({ alias, badge_type: type, reason, links: getEl('verf-links')?.value || '', status: 'pending' })
+            }).catch(() => { });
+        }
+    });
+}
+
+/* ── Extend DOMContentLoaded to wire new UI ─────────────── */
+const _origListener = document.addEventListener.bind(document);
+document.addEventListener('DOMContentLoaded', () => {
+    initProfileTabs();
+    initVerificationRequest();
+});

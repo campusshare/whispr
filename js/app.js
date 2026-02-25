@@ -127,33 +127,33 @@ const Auth = (() => {
   const ALIAS_KEY = 'whispr_alias';
   const ID_KEY = 'whispr_id';
   const AVATAR_KEY = 'whispr_avatar';
-  const TOKEN_KEY = 'whispr_token';   // backend-issued JWT
+  // NOTE: Tokens are stored in HttpOnly Secure cookies by the auth-handler Edge Function.
+  // They are NEVER stored in localStorage. Cookie is sent automatically via credentials:'include'.
 
   function getAlias() { return localStorage.getItem(ALIAS_KEY); }
   function getId() { return localStorage.getItem(ID_KEY); }
   function getAvatar() { return localStorage.getItem(AVATAR_KEY) || '\uD83E\uDD85'; }
-  function getToken() { return localStorage.getItem(TOKEN_KEY); }
   function isLoggedIn() { return !!getAlias() && !!getId(); }
 
-  function setSession(alias, id, avatar = '\uD83E\uDD85', token = null) {
+  function setSession(alias, id, avatar = '\uD83E\uDD85') {
     localStorage.setItem(ALIAS_KEY, alias);
     localStorage.setItem(ID_KEY, id);
     localStorage.setItem(AVATAR_KEY, avatar);
-    if (token) localStorage.setItem(TOKEN_KEY, token);
+    // Token is set as HttpOnly cookie by the Edge Function — not stored here
   }
 
   function clearSession() {
-    [ALIAS_KEY, ID_KEY, AVATAR_KEY, TOKEN_KEY].forEach(k => localStorage.removeItem(k));
+    [ALIAS_KEY, ID_KEY, AVATAR_KEY].forEach(k => localStorage.removeItem(k));
+    sessionStorage.clear();
   }
 
   /**
-   * validateSession() — verifies the stored JWT is still accepted by the backend.
-   * If the JWT is absent or rejected, clears local state and redirects to auth.
-   * Returns true if valid, false (after redirect) if not.
+   * validateSession() — verifies the stored session is still valid.
+   * Tokens are stored in HttpOnly cookies and sent automatically via credentials:'include'.
+   * If the user is not logged in (no alias/id in localStorage), redirects to auth.html.
+   * Optionally verifies with backend using cookie auth (no token in JS).
    */
   async function validateSession() {
-    const token = getToken();
-    // Exempt pages that don't need auth
     const page = location.pathname.split('/').pop() || 'index.html';
     const EXEMPT = ['auth.html', 'index.html', 'about.html', 'legal.html', 'transparency.html'];
     if (EXEMPT.includes(page)) return true;
@@ -164,26 +164,27 @@ const Auth = (() => {
       return false;
     }
 
-    // If we have a real JWT, verify it with Supabase
-    if (token && token !== 'null') {
-      try {
-        const res = await fetch('https://liotabdrefkcudxbhswh.supabase.co/auth/v1/user', {
-          headers: { Authorization: `Bearer ${token}`, apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpb3RhYmRyZWZrY3VkeGJoc3doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzUyOTYsImV4cCI6MjA4NzU1MTI5Nn0.EJbtBxm871murMLxouTGDggYWm3EDJEjBiUDYg5-o0E' }
-        });
-        if (res.status === 401 || res.status === 403) {
-          clearSession();
-          location.replace('auth.html');
-          return false;
+    // Verify session with backend — cookie is sent automatically
+    try {
+      const res = await fetch(
+        'https://liotabdrefkcudxbhswh.supabase.co/auth/v1/user',
+        {
+          credentials: 'include',
+          headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxpb3RhYmRyZWZrY3VkeGJoc3doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NzUyOTYsImV4cCI6MjA4NzU1MTI5Nn0.EJbtBxm871murMLxouTGDggYWm3EDJEjBiUDYg5-o0E' }
         }
-      } catch {
-        // Network error — allow through (offline mode), but keep localStorage check above
+      );
+      if (res.status === 401 || res.status === 403) {
+        clearSession();
+        location.replace('auth.html');
+        return false;
       }
+    } catch {
+      // Network error — allow through (offline graceful degradation)
     }
-    // Local-session fallback: if no real JWT but localStorage says logged in, allow through
     return true;
   }
 
-  return { getAlias, getId, getAvatar, getToken, isLoggedIn, setSession, clearSession, validateSession };
+  return { getAlias, getId, getAvatar, isLoggedIn, setSession, clearSession, validateSession };
 })();
 
 /* ─────────────────────────────────────────────

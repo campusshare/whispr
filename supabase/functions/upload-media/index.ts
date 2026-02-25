@@ -1,87 +1,143 @@
+/**
+ * Whispr — upload-media Edge Function (HARDENED)
+ *
+ * Security:
+ *  - CORS locked to ALLOWED_ORIGIN
+ *  - JWT required; user-scoped Supabase client for media DB insert (RLS applies)
+ *  - Service role NOT used for media record insertion
+ *  - Real EXIF/metadata stripping before upload (JPEG + PNG)
+ *  - File MIME + extension validation with size enforcement
+ *  - Signed Cloudinary upload (SHA-1, 60s expiry window)
+ *  - Rate limit: 10 uploads per hour per user
+ *  - No file names, user IDs, or file content in logs
+ */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  getCorsHeaders,
+  handlePreflight,
+  corsRejected,
+  verifyUserJWT,
+  checkRateLimit,
+  rateLimitResponse,
+  validateFile,
+  stripImageMetadata,
+  cloudinarySignedUpload,
+  logSecurity,
+  errorResponse,
+  jsonResponse,
+} from '../_shared/security.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+const ALLOWED_MEDIA_TYPES = ['image', 'video', 'document']
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  // ── CORS preflight ─────────────────────────────────────
+  const preflight = handlePreflight(req)
+  if (preflight) return preflight
+
+  const cors = getCorsHeaders(req)
+  if (!cors) return corsRejected()
+
+  if (req.method !== 'POST') return errorResponse('Method not allowed', 405, cors)
 
   try {
-    // 1. Verify Authentication
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Missing Authorization header')
+    // ── Authentication (JWT required) ──────────────────────
+    const { userId, userClient, adminClient } = await verifyUserJWT(req)
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token)
-    if (authErr || !user) throw new Error('Unauthorized')
+    // ── Rate limiting: 10 uploads/hour ─────────────────────
+    const rl = await checkRateLimit(adminClient, userId, 'upload')
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter!, cors)
 
-    // 2. Parse payload
+    // ── Parse multipart form data ──────────────────────────
     const formData = await req.formData()
-    const file = formData.get('file') as File
-    const postId = formData.get('post_id') as string
+    const file = formData.get('file') as File | null
+    const postId = formData.get('post_id') as string | null
 
     if (!file || !postId) {
-      throw new Error('Missing file or post_id')
+      return errorResponse('file and post_id are required', 400, cors)
     }
 
-    // 3. Security Check: EXIF Stripping & Face Detection (Abstracted AI Gateway)
-    console.log(`[SECURITY] Initiating EXIF sanitization for ${file.name}`)
-    // ... Implement EXIF stripping buffer logic here
-
-    console.log(`[SECURITY] Running advanced AI Face Detection...`)
-    const hasFace = false // Replace with actual Vision API call
-    if (hasFace) {
-      throw new Error('Upload rejected: Media contains exposed human faces. Anonymity compromised.')
+    // ── Validate post_id is a valid UUID ───────────────────
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) {
+      return errorResponse('Invalid post_id format', 400, cors)
     }
 
-    // 4. Cloudinary Secure Upload via Signed Delivery
-    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${Deno.env.get('CLOUDINARY_CLOUD_NAME')}/auto/upload`
-    const timestamp = Math.round((new Date).getTime() / 1000)
-    // In production, generate an SHA-1 signature using CLOUDINARY_API_SECRET
+    // ── Verify the requesting user owns this post ──────────
+    const { data: postRow, error: postErr } = await userClient
+      .from('posts')
+      .select('id, author_id')
+      .eq('id', postId)
+      .eq('author_id', userId)
+      .maybeSingle()
 
-    const cloudFormData = new FormData()
-    cloudFormData.append('file', file)
-    cloudFormData.append('upload_preset', 'whispr_secure_preset')
-    cloudFormData.append('timestamp', timestamp.toString())
-    cloudFormData.append('api_key', Deno.env.get('CLOUDINARY_API_KEY') || '')
-    // cloudFormData.append('signature', signature)
+    if (postErr || !postRow) {
+      logSecurity('WARN', 'Upload rejected — post not owned by requesting user')
+      return errorResponse('Post not found or access denied', 403, cors)
+    }
 
-    // Mocking Cloudinary response for scaffolding
-    // const cloudRes = await fetch(cloudinaryUrl, { method: 'POST', body: cloudFormData })
-    // const cloudData = await cloudRes.json()
-    const cloudData = { public_id: `whispr_secure_${crypto.randomUUID()}.${file.name.split('.').pop()}` }
+    // ── FILE VALIDATION (MIME + extension + size) ──────────
+    const validation = validateFile(file)
+    if (!validation.valid) {
+      logSecurity('WARN', `File validation failed: ${validation.error}`)
+      return errorResponse(validation.error!, 400, cors)
+    }
+    logSecurity('INFO', 'File validation passed')
 
-    // 5. Insert secure reference into Supabase
-    const { error: dbError } = await supabaseAdmin
+    // ── EXIF / METADATA STRIPPING ─────────────────────────
+    const mime = file.type.toLowerCase()
+    const isImage = mime.startsWith('image/')
+    let fileBuffer: Uint8Array
+
+    if (isImage) {
+      // Real EXIF strip: parses JPEG/PNG markers and removes metadata segments
+      fileBuffer = await stripImageMetadata(file)
+      // logSecurity called inside stripImageMetadata: "[SECURITY] Metadata removed successfully."
+    } else {
+      fileBuffer = new Uint8Array(await file.arrayBuffer())
+      logSecurity('INFO', 'Non-image file — EXIF processing skipped')
+    }
+
+    // ── SIGNED CLOUDINARY UPLOAD ───────────────────────────
+    const publicId = `whispr/${userId.slice(0, 8)}/${crypto.randomUUID()}`
+    const { public_id: cloudinaryId } = await cloudinarySignedUpload(fileBuffer, mime, publicId)
+
+    // ── Determine media_type for DB ────────────────────────
+    let mediaType = 'image'
+    if (mime.startsWith('video/')) mediaType = 'video'
+    else if (mime === 'application/pdf') mediaType = 'document'
+
+    // ── DB insert via USER-SCOPED client (RLS applies) ─────
+    // RLS policy "Authors can insert media" checks posts.author_id = auth.uid()
+    const { error: dbErr } = await userClient
       .from('media')
       .insert({
         post_id: postId,
-        cloudinary_id: cloudData.public_id,
-        media_type: file.type.startsWith('video') ? 'video' : 'image'
+        cloudinary_id: cloudinaryId,
+        media_type: mediaType,
       })
 
-    if (dbError) throw dbError
+    if (dbErr) {
+      logSecurity('ERROR', 'Media record insert failed after upload')
+      // Best-effort: delete the Cloudinary asset to prevent orphans
+      // (Cloudinary deletion would require another signed request — log for manual cleanup)
+      logSecurity('WARN', `Cloudinary orphan may exist — manual cleanup required`)
+      return errorResponse('Failed to save media record', 500, cors)
+    }
 
-    return new Response(JSON.stringify({
+    logSecurity('INFO', 'Media uploaded, stripped, signed, and recorded successfully')
+
+    return jsonResponse({
       success: true,
-      message: 'Media securely processed, stripped, and uploaded.',
-      cloudinary_id: cloudData.public_id
-    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      cloudinary_id: cloudinaryId,
+      media_type: mediaType,
+      message: 'Media securely processed, metadata stripped, and uploaded.',
+    }, 201, cors)
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  } catch (err) {
+    const msg = (err as Error).message ?? ''
+    if (msg.includes('token') || msg.includes('Unauthorized') || msg.includes('Authorization')) {
+      return errorResponse('Unauthorized', 401, cors)
+    }
+    logSecurity('ERROR', 'upload-media exception')
+    return errorResponse('Internal server error', 500, cors)
   }
 })
